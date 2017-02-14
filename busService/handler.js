@@ -46,18 +46,34 @@ function fetchBusInfo() {
       for (var i = 0; i < body.length; i++) {
         storeItem(body[i], mostRecentTime);     
       }
+      console.log("RECENTl",mostRecentTime);
     }
   })
 };
 
-function storeItem(item, timestamp) {
+function storeItem(item) {
   // Create item
+  var logoURL;
+  switch(item.route) {
+    case 3164:
+      logoURL = "https://github.com/IanStodart/CS499_Hackathon2/blob/master/A%20Icon.png?raw=true";
+      break;
+    case 4512:
+      logoURL = "https://github.com/IanStodart/CS499_Hackathon2/blob/master/B1%20Icon.png?raw=true";
+      break;
+    case 4513:
+      logoURL = "https://github.com/IanStodart/CS499_Hackathon2/blob/master/B2%20Icon.jpg?raw=true";
+      break;
+    case 4515:
+      logoURL = "https://github.com/IanStodart/CS499_Hackathon2/blob/master/C%20Icon.png?raw=true";
+      break;
+  }
   var params = {
     TableName: table,
     Item: {
       "id": item.id,
-      "timestamp": timestamp,
-      "logo": item.logo,
+      "timestamp": mostRecentTime,
+      "logo": logoURL,
       "lat": item.lat,
       "lng": item.lng,
       "route": item.route
@@ -70,7 +86,7 @@ function storeItem(item, timestamp) {
     if (err) {
       console.error("Unable to add item. Error JSON:", JSON.stringify(err, null, 2));
     } else {
-      console.log("Added item to DynamoDB: ", item.id);
+      console.log("Added item to DynamoDB: ", item);
     }
   }); 
 }
@@ -79,9 +95,8 @@ function storeItem(item, timestamp) {
 
 /* Scanning Bus Information */
 function scanBusInfo(callback) {
-  if (!mostRecentTime) {
-    fetchBusInfo();
-  }
+  fetchBusInfo();
+  
   var params = {
     TableName : table,
     ProjectionExpression:"#id, logo, lat, lng, route",
@@ -122,6 +137,8 @@ function scanBusInfo(callback) {
           },
           body: JSON.stringify(data.Items),
         };
+        console.log("RECENTl",mostRecentTime);
+        console.log(data.Items);
         callback(null, responseOk);  
       }
     }
