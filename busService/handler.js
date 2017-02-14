@@ -108,12 +108,15 @@ function scanBusInfo(callback) {
         }
       });
       if (callback) {
+      	// Convert contents of map into an array for a json response
+      	var items = Array.from(map.values());
+
         const responseOk = {
           statusCode: 200,
           headers: {
             "Access-Control-Allow-Origin" : "*" // Required for CORS support to work
           },
-          body: JSON.stringify(data.Items),
+          body: JSON.stringify(items),
         };
         callback(null, responseOk);  
       }
