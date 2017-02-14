@@ -9,7 +9,7 @@ AWS.config.update({
 
 
 var docClient = new AWS.DynamoDB.DocumentClient();
-var map = new Map();  		// used to keep track of primary keys
+var mostRecentTime;
 var table = "BroncoShuttleInfo";
 var url = "https://rqato4w151.execute-api.us-west-1.amazonaws.com/dev/info";
 
@@ -42,20 +42,21 @@ function fetchBusInfo() {
     json: true
   }, function (error, response, body) {
     if (!error && response.statusCode == 200) {
+      mostRecentTime = Date.now();
       for (var i = 0; i < body.length; i++) {
-        storeItem(body[i]);     
+        storeItem(body[i], mostRecentTime);     
       }
     }
   })
 };
 
-function storeItem(item) {
+function storeItem(item, timestamp) {
   // Create item
   var params = {
     TableName: table,
     Item: {
       "id": item.id,
-      "timestamp": Date.now(),
+      "timestamp": timestamp,
       "logo": item.logo,
       "lat": item.lat,
       "lng": item.lng,
@@ -75,10 +76,23 @@ function storeItem(item) {
 }
 
 
+
 /* Scanning Bus Information */
 function scanBusInfo(callback) {
+  if (!mostRecentTime) {
+    fetchBusInfo();
+  }
   var params = {
-    TableName : table
+    TableName : table,
+    ProjectionExpression:"#id, logo, lat, lng, route",
+    FilterExpression: "#timestamp = :time",
+    ExpressionAttributeNames:{
+    	"#id": "id",
+        "#timestamp": "timestamp",
+    },
+    ExpressionAttributeValues: {
+        ":time": mostRecentTime
+    }
   };
 
   // Scan table in DynamoDB 
@@ -98,25 +112,15 @@ function scanBusInfo(callback) {
     } else {
       console.log("Scan succeeded.");
       data.Items.forEach(function(item) {
-      	// Use map to keep track of most current timestamp per item id
-        if (map.has(item.id)) {
-          // compare timestamps and store in map the one with the most current one
-          var existingItem = map.get(item.id);
-          if (item.timestamp > existingItem.timestamp) map.set(item.id, item);
-        } else {
-          map.set(item.id, item);
-        }
+        console.log(item);
       });
       if (callback) {
-      	// Convert contents of map into an array for a json response
-      	var items = Array.from(map.values());
-
         const responseOk = {
           statusCode: 200,
           headers: {
             "Access-Control-Allow-Origin" : "*" // Required for CORS support to work
           },
-          body: JSON.stringify(items),
+          body: JSON.stringify(data.Items),
         };
         callback(null, responseOk);  
       }
