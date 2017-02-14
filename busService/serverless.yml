@@ -67,6 +67,12 @@ functions:
       - http:
           path: fetch/
           method: get
+  query:
+    handler: handler.query
+    events:      
+      - http:
+         path: query/
+         method: get
 
 
 

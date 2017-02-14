@@ -9,6 +9,7 @@ AWS.config.update({
 
 
 var docClient = new AWS.DynamoDB.DocumentClient();
+var map = new Map();  		// used to keep track of primary keys
 var table = "BroncoShuttleInfo";
 var url = "https://rqato4w151.execute-api.us-west-1.amazonaws.com/dev/info";
 
@@ -21,13 +22,16 @@ module.exports.fetch = (event, context, callback) => {
     },
     body: JSON.stringify({
       message: 'Fetching bus times...',
-    }),
+    })
   };
 
   fetchBusInfo();
   callback(null, response);
 };
 
+module.exports.query = (event, context, callback) => {
+  scanBusInfo(callback);
+};
 
 
 
@@ -65,9 +69,55 @@ function storeItem(item) {
     if (err) {
       console.error("Unable to add item. Error JSON:", JSON.stringify(err, null, 2));
     } else {
-      console.log("Added item: ", item.id);
+      console.log("Added item to DynamoDB: ", item.id);
     }
   }); 
 }
 
+
+/* Scanning Bus Information */
+function scanBusInfo(callback) {
+  var params = {
+    TableName : table
+  };
+
+  // Scan table in DynamoDB 
+  docClient.scan(params, function(err, data) {
+    if (err) {
+      console.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
+      if (callback) {
+        const responseErr = {
+          statusCode: 500,
+          headers: {
+            "Access-Control-Allow-Origin" : "*" // Required for CORS support to work
+          },
+          body: JSON.stringify({'err' : err}),
+        };
+        callback(null, responseErr);  
+      }
+    } else {
+      console.log("Scan succeeded.");
+      data.Items.forEach(function(item) {
+      	// Use map to keep track of most current timestamp per item id
+        if (map.has(item.id)) {
+          // compare timestamps and store in map the one with the most current one
+          var existingItem = map.get(item.id);
+          if (item.timestamp > existingItem.timestamp) map.set(item.id, item);
+        } else {
+          map.set(item.id, item);
+        }
+      });
+      if (callback) {
+        const responseOk = {
+          statusCode: 200,
+          headers: {
+            "Access-Control-Allow-Origin" : "*" // Required for CORS support to work
+          },
+          body: JSON.stringify(data.Items),
+        };
+        callback(null, responseOk);  
+      }
+    }
+  })
+}
 
